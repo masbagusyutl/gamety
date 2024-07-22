@@ -3,7 +3,7 @@ import json
 import time
 import random
 from datetime import datetime, timedelta
-from urllib.parse import urlencode, quote
+from urllib.parse import quote
 
 def load_tgwebappdata(file_path):
     with open(file_path, 'r') as f:
@@ -16,14 +16,19 @@ def format_tgwebappdata(raw_data):
     return tgwebappdata_url
 
 def get_authorization(tgwebappdata_url):
-    response = requests.get(tgwebappdata_url)
-    if response.status_code == 200:
-        # Assuming the authorization token is part of the response JSON
+    try:
+        response = requests.get(tgwebappdata_url)
+        response.raise_for_status()  # Raise an error for bad status codes
         auth_data = response.json()
         return auth_data.get('authorization')
-    else:
-        print(f"Failed to get authorization, status code: {response.status_code}")
-        return None
+    except requests.exceptions.HTTPError as http_err:
+        print(f"HTTP error occurred: {http_err}")
+    except requests.exceptions.RequestException as req_err:
+        print(f"Request error occurred: {req_err}")
+    except json.decoder.JSONDecodeError as json_err:
+        print(f"JSON decode error: {json_err}")
+        print(f"Response text: {response.text}")
+    return None
 
 def get_current_time():
     return datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
@@ -102,6 +107,7 @@ def main():
     for i, tgwebappdata in enumerate(tgwebappdata_list):
         print(f"Processing account {i+1}/{num_accounts}")
         tgwebappdata_url = format_tgwebappdata(tgwebappdata)
+        print(f"Formatted URL: {tgwebappdata_url}")  # Debugging: print the formatted URL
         auth_token = get_authorization(tgwebappdata_url)
         if auth_token:
             perform_clicks(auth_token, click_url, defeat_url)
