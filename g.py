@@ -1,12 +1,29 @@
 import requests
 import json
-import random
 import time
+import random
 from datetime import datetime, timedelta
+from urllib.parse import urlencode, quote
 
-def load_authorizations(file_path):
+def load_tgwebappdata(file_path):
     with open(file_path, 'r') as f:
         return [line.strip() for line in f]
+
+def format_tgwebappdata(raw_data):
+    base_url = 'https://dt49tlqaucy6e.cloudfront.net/Prod_Build/index.html?bot_username=GametyApp_bot#tgWebAppData='
+    encoded_data = quote(raw_data)
+    tgwebappdata_url = f"{base_url}{encoded_data}&tgWebAppVersion=7.6&tgWebAppPlatform=tdesktop&tgWebAppThemeParams=%7B\"accent_text_color\"%3A\"%236ab2f2\"%2C\"bg_color\"%3A\"%2317212b\"%2C\"button_color\"%3A\"%235288c1\"%2C\"button_text_color\"%3A\"%23ffffff\"%2C\"destructive_text_color\"%3A\"%23ec3942\"%2C\"header_bg_color\"%3A\"%2317212b\"%2C\"hint_color\"%3A\"%23708499\"%2C\"link_color\"%3A\"%236ab3f3\"%2C\"secondary_bg_color\"%3A\"%23232e3c\"%2C\"section_bg_color\"%3A\"%2317212b\"%2C\"section_header_text_color\"%3A\"%236ab3f3\"%2C\"section_separator_color\"%3A\"%23111921\"%2C\"subtitle_text_color\"%3A\"%23708499\"%2C\"text_color\"%3A\"%23f5f5f5\"%7D"
+    return tgwebappdata_url
+
+def get_authorization(tgwebappdata_url):
+    response = requests.get(tgwebappdata_url)
+    if response.status_code == 200:
+        # Assuming the authorization token is part of the response JSON
+        auth_data = response.json()
+        return auth_data.get('authorization')
+    else:
+        print(f"Failed to get authorization, status code: {response.status_code}")
+        return None
 
 def get_current_time():
     return datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
@@ -80,12 +97,17 @@ def countdown_and_restart():
 def main():
     click_url = 'https://gamety-clicker-api.metafighter.com/api/v1/actions/click/'
     defeat_url = 'https://gamety-clicker-api.metafighter.com/api/v1/actions/defeat/'
-    auth_tokens = load_authorizations('data.txt')
-    num_accounts = len(auth_tokens)
-    for i, auth_token in enumerate(auth_tokens):
+    tgwebappdata_list = load_tgwebappdata('data.txt')
+    num_accounts = len(tgwebappdata_list)
+    for i, tgwebappdata in enumerate(tgwebappdata_list):
         print(f"Processing account {i+1}/{num_accounts}")
-        perform_clicks(auth_token, click_url, defeat_url)
-        print(f"Finished processing account {i+1}/{num_accounts}")
+        tgwebappdata_url = format_tgwebappdata(tgwebappdata)
+        auth_token = get_authorization(tgwebappdata_url)
+        if auth_token:
+            perform_clicks(auth_token, click_url, defeat_url)
+            print(f"Finished processing account {i+1}/{num_accounts}")
+        else:
+            print(f"Skipping account {i+1}/{num_accounts} due to authorization failure.")
         time.sleep(5)  # Delay between accounts
     countdown_and_restart()
 
