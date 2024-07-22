@@ -1,39 +1,53 @@
 import requests
 import json
-import random
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+import random
 
-def load_authorizations(file_path):
-    with open(file_path, 'r') as f:
-        return [line.strip() for line in f]
+# Fungsi untuk memuat data dari file data.txt
+def load_data(file_path):
+    with open(file_path, 'r') as file:
+        data = file.read().strip()
+    return data
 
-def get_current_time():
-    return datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+# Fungsi untuk mendapatkan token Authorization
+def get_authorization_token(web_app_data):
+    url = 'https://gamety-clicker-api.metafighter.com/api/v1/auth/'
+    payload = {"web_app_data": web_app_data}
+    headers = {
+        "Content-Type": "application/json",
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    if response.status_code == 200:
+        try:
+            auth_data = response.json()
+            return auth_data.get('token')
+        except json.JSONDecodeError:
+            print("Failed to parse authorization response.")
+            return None
+    else:
+        print(f"Failed to get authorization token. Status code: {response.status_code}")
+        return None
 
-def perform_defeat(auth_token, url, attempts=3):
-    for attempt in range(attempts):
-        click_number = random.randint(1, 3)
-        payload = {
-            "click_number": str(click_number),
-            "click_date": get_current_time()
-        }
-        headers = {
-            "Authorization": f"Bearer {auth_token}",
-            "Accept": "*/*",
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
-            # Add other headers here if needed
-        }
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
-        if response.status_code == 200:
-            print(f"Successfully sent {click_number} defeats (attempt {attempt+1}).")
-        else:
-            print(f"Failed to send defeats on attempt {attempt+1}. Status code: {response.status_code}")
-            return False
-        time.sleep(5)  # Delay between requests
-    return True
+# Fungsi untuk mendapatkan data user dengan token Authorization
+def get_user_data(auth_token):
+    request_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    url = f'https://gamety-clicker-api.metafighter.com/api/v1/user/?request_date={request_date}'
+    headers = {
+        "Authorization": f"Bearer {auth_token}",
+        "Accept": "*/*",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        print("User data retrieved successfully.")
+        return response.json()
+    else:
+        print(f"Failed to get user data. Status code: {response.status_code}")
+        return None
 
+# Fungsi untuk melakukan klik
 def perform_clicks(auth_token, url, defeat_url):
     total_clicks = 505
     clicks_done = 0
@@ -43,14 +57,13 @@ def perform_clicks(auth_token, url, defeat_url):
             click_number = total_clicks - clicks_done
         payload = {
             "click_number": str(click_number),
-            "click_date": get_current_time()
+            "click_date": datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         }
         headers = {
             "Authorization": f"Bearer {auth_token}",
             "Accept": "*/*",
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
-            # Add other headers here if needed
         }
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         if response.status_code == 200:
@@ -67,27 +80,19 @@ def perform_clicks(auth_token, url, defeat_url):
             print(f"Failed to send clicks. Status code: {response.status_code}")
         time.sleep(5)  # Delay between requests
 
-def countdown_and_restart():
-    while True:
-        end_time = datetime.now() + timedelta(hours=14)
-        while datetime.now() < end_time:
-            remaining_time = end_time - datetime.now()
-            print(f"Time remaining: {str(remaining_time).split('.')[0]}", end='\r')
-            time.sleep(1)
-        print("\nRestarting script...")
-        main()  # Restart the script
-
+# Fungsi utama
 def main():
-    click_url = 'https://gamety-clicker-api.metafighter.com/api/v1/actions/click/'
-    defeat_url = 'https://gamety-clicker-api.metafighter.com/api/v1/actions/defeat/'
-    auth_tokens = load_authorizations('data.txt')
-    num_accounts = len(auth_tokens)
-    for i, auth_token in enumerate(auth_tokens):
-        print(f"Processing account {i+1}/{num_accounts}")
-        perform_clicks(auth_token, click_url, defeat_url)
-        print(f"Finished processing account {i+1}/{num_accounts}")
-        time.sleep(5)  # Delay between accounts
-    countdown_and_restart()
+    web_app_data = load_data('data.txt')
+    auth_token = get_authorization_token(web_app_data)
+    if auth_token:
+        user_data = get_user_data(auth_token)
+        if user_data:
+            print(user_data)
+            # URL klik
+            click_url = "https://gamety-clicker-api.metafighter.com/api/v1/actions/click/"
+            # URL defeat (contoh)
+            defeat_url = "https://gamety-clicker-api.metafighter.com/api/v1/actions/defeat/"
+            perform_clicks(auth_token, click_url, defeat_url)
 
 if __name__ == "__main__":
     main()
