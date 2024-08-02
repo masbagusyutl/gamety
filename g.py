@@ -11,6 +11,42 @@ def load_authorizations(file_path):
 def get_current_time():
     return datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
 
+def login_and_get_access_token(web_app_data):
+    url = 'https://gamety-clicker-api.metafighter.com/api/v1/auth/'
+    payload = {
+        "web_app_data": web_app_data
+    }
+    headers = {
+        "Accept": "*/*",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0"
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    if response.status_code == 200:
+        tokens = response.json()
+        return tokens['access']
+    else:
+        print(f"Login failed. Status code: {response.status_code}")
+        return None
+
+def get_account_info(auth_token):
+    url = f'https://gamety-clicker-api.metafighter.com/api/v1/user/?request_date={get_current_time()}'
+    headers = {
+        "Authorization": f"Bearer {auth_token}",
+        "Accept": "*/*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0"
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        account_data = response.json()['data']
+        print(f"telegram_id: {account_data['telegram_id']}")
+        print(f"experience: {account_data['experience']}")
+        print(f"coins: {account_data['coins']}")
+        print(f"energy_current: {account_data['stat']['energy_current']}")
+        print(f"energy_max: {account_data['stat']['energy_max']}")
+    else:
+        print(f"Failed to get account info. Status code: {response.status_code}")
+
 def perform_defeat(auth_token, url, attempts=3):
     for attempt in range(attempts):
         click_number = random.randint(1, 3)
@@ -22,8 +58,7 @@ def perform_defeat(auth_token, url, attempts=3):
             "Authorization": f"Bearer {auth_token}",
             "Accept": "*/*",
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
-            # Add other headers here if needed
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0"
         }
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         if response.status_code == 200:
@@ -49,8 +84,7 @@ def perform_clicks(auth_token, url, defeat_url):
             "Authorization": f"Bearer {auth_token}",
             "Accept": "*/*",
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
-            # Add other headers here if needed
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0"
         }
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         if response.status_code == 200:
@@ -80,11 +114,14 @@ def countdown_and_restart():
 def main():
     click_url = 'https://gamety-clicker-api.metafighter.com/api/v1/actions/click/'
     defeat_url = 'https://gamety-clicker-api.metafighter.com/api/v1/actions/defeat/'
-    auth_tokens = load_authorizations('data.txt')
-    num_accounts = len(auth_tokens)
-    for i, auth_token in enumerate(auth_tokens):
+    web_app_data_list = load_authorizations('data.txt')
+    num_accounts = len(web_app_data_list)
+    for i, web_app_data in enumerate(web_app_data_list):
         print(f"Processing account {i+1}/{num_accounts}")
-        perform_clicks(auth_token, click_url, defeat_url)
+        access_token = login_and_get_access_token(web_app_data)
+        if access_token:
+            get_account_info(access_token)
+            perform_clicks(access_token, click_url, defeat_url)
         print(f"Finished processing account {i+1}/{num_accounts}")
         time.sleep(5)  # Delay between accounts
     countdown_and_restart()
